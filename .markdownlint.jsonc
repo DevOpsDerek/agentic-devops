@@ -1,0 +1,6 @@
+{
+  // Base ruleset
+  "default": true,
+  // Line length (MD013) is too noisy for prose and long URLs/tables.
+  "MD013": false
+}
