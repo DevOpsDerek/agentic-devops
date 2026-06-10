@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COVERAGE_THRESHOLD: "60"
+
+jobs:
+  build-test:
+    name: Build, format & test (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore AgenticDevOps.sln
+
+      - name: Verify formatting
+        run: dotnet format AgenticDevOps.sln --verify-no-changes --no-restore --severity warn
+
+      - name: Build
+        run: dotnet build AgenticDevOps.sln -c Release --no-restore
+
+      - name: Test with coverage
+        run: >
+          dotnet test AgenticDevOps.sln -c Release --no-build
+          --collect "XPlat Code Coverage"
+          --settings coverlet.runsettings
+          --results-directory ./TestResults
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Enforce coverage gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          report=$(find ./TestResults -name 'coverage.cobertura.xml' | head -n1)
+          if [[ -z "${report}" ]]; then
+            echo "::error::No coverage report found"
+            exit 1
+          fi
+          rate=$(python3 -c "import sys,xml.etree.ElementTree as ET; print(float(ET.parse('${report}').getroot().get('line-rate'))*100)")
+          printf 'Line coverage: %.1f%% (threshold %s%%)\n' "${rate}" "${COVERAGE_THRESHOLD}"
+          awk -v r="${rate}" -v t="${COVERAGE_THRESHOLD}" 'BEGIN { exit (r+0 < t+0) }' || {
+            echo "::error::Coverage ${rate}% is below threshold ${COVERAGE_THRESHOLD}%"
+            exit 1
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./TestResults
+          retention-days: 7
+
+  terraform:
+    name: Terraform lint & validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.6
+
+      - name: Terraform format check
+        run: terraform -chdir=infra fmt -recursive -check
+
+      - name: Terraform init (no backend)
+        run: terraform -chdir=infra init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform -chdir=infra validate -no-color
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: TFLint
+        run: |
+          tflint --chdir=infra --init
+          tflint --chdir=infra -f compact
+
+  security-scan:
+    name: Trivy IaC & filesystem scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy config (IaC) scan - SARIF
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload Trivy config SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+      - name: Trivy filesystem (deps) scan - SARIF
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy fs SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Trivy gate (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+  meta-lint:
+    name: Lint workflows & docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          fail-on-error: true
+
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: |
+            **/*.md
+            !.github/workflows/**
+            !**/node_modules/**

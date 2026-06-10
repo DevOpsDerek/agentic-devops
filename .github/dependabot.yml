@@ -1,0 +1,44 @@
+updates:
+- directory: /
+  groups:
+    dotnet:
+      patterns:
+      - "*"
+  labels:
+  - dependencies
+  - dotnet
+  open-pull-requests-limit: 10
+  package-ecosystem: nuget
+  schedule:
+    interval: weekly
+- directory: /infra
+  labels:
+  - dependencies
+  - terraform
+  package-ecosystem: terraform
+  schedule:
+    interval: weekly
+- directory: /infra/bootstrap
+  labels:
+  - dependencies
+  - terraform
+  package-ecosystem: terraform
+  schedule:
+    interval: weekly
+- directory: /
+  ignore:
+  - dependency-name: "github/gh-aw-actions/**" # Managed by gh aw compile. Version-locked to the gh-aw compiler; do not bump.
+  labels:
+  - dependencies
+  - github-actions
+  package-ecosystem: github-actions
+  schedule:
+    interval: weekly
+- directory: /src/Api
+  labels:
+  - dependencies
+  - docker
+  package-ecosystem: docker
+  schedule:
+    interval: weekly
+version: 2

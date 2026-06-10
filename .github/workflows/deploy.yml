@@ -1,0 +1,125 @@
+name: Deploy (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Target environment (dev, test, prod)
+        type: string
+        required: true
+      image_tag:
+        description: Image tag to deploy
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download built image
+        uses: actions/download-artifact@v4
+        with:
+          name: app-image
+          path: ./image
+
+      - name: Load image
+        run: docker load --input ./image/app-image.tar
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.6
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra
+        run: >
+          terraform init -input=false
+          -backend-config="resource_group_name=rg-${{ vars.PROJECT_NAME || 'agenticdevops' }}-tfstate"
+          -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=${{ inputs.environment }}.terraform.tfstate"
+          -backend-config="use_azuread_auth=true"
+
+      - name: Terraform apply (infrastructure)
+        working-directory: infra
+        run: >
+          terraform apply -input=false -auto-approve
+          -var="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          -var-file="envs/${{ inputs.environment }}.tfvars"
+
+      - name: Read Terraform outputs
+        id: tf
+        working-directory: infra
+        run: |
+          {
+            echo "acr_name=$(terraform output -raw acr_name)"
+            echo "acr_login_server=$(terraform output -raw acr_login_server)"
+            echo "container_app_name=$(terraform output -raw container_app_name)"
+            echo "resource_group=$(terraform output -raw resource_group_name)"
+            echo "app_url=$(terraform output -raw app_url)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Push image to ACR
+        run: |
+          set -euo pipefail
+          az acr login --name "${{ steps.tf.outputs.acr_name }}"
+          target="${{ steps.tf.outputs.acr_login_server }}/api:${{ inputs.image_tag }}"
+          docker tag "app:${{ inputs.image_tag }}" "${target}"
+          docker push "${target}"
+
+      - name: Update Container App image
+        run: >
+          az containerapp update
+          --name "${{ steps.tf.outputs.container_app_name }}"
+          --resource-group "${{ steps.tf.outputs.resource_group }}"
+          --image "${{ steps.tf.outputs.acr_login_server }}/api:${{ inputs.image_tag }}"
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          url="${{ steps.tf.outputs.app_url }}/healthz"
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${url}" || true)
+            if [[ "${code}" == "200" ]]; then
+              echo "Health check passed (${url})"
+              exit 0
+            fi
+            echo "Attempt ${i}: status ${code}, retrying..."
+            sleep 15
+          done
+          echo "::error::Health check failed for ${url}"
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "### Deployed to ${{ inputs.environment }} :rocket:"
+            echo ""
+            echo "- **URL:** ${{ steps.tf.outputs.app_url }}"
+            echo "- **Image tag:** \`${{ inputs.image_tag }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

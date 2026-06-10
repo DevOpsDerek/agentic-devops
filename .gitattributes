@@ -1,0 +1,11 @@
+# Normalize line endings to LF across platforms
+* text=auto eol=lf
+
+# Generated agentic workflow lock files
+.github/workflows/*.lock.yml linguist-generated=true merge=ours
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

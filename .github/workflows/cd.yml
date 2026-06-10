@@ -1,0 +1,110 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "infra/**"
+      - ".github/workflows/cd.yml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & scan image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src/Api
+          file: ./src/Api/Dockerfile
+          push: false
+          load: true
+          tags: app:${{ steps.meta.outputs.tag }}
+
+      - name: Trivy image scan - SARIF
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: app:${{ steps.meta.outputs.tag }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Trivy image gate (fail on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: app:${{ steps.meta.outputs.tag }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Export image artifact
+        run: docker save "app:${{ steps.meta.outputs.tag }}" -o app-image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-image
+          path: app-image.tar
+          retention-days: 1
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: dev
+      image_tag: ${{ needs.build.outputs.image_tag }}
+
+  deploy-test:
+    name: Deploy to Test
+    needs: [build, deploy-dev]
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: test
+      image_tag: ${{ needs.build.outputs.image_tag }}
+
+  deploy-prod:
+    name: Deploy to Prod
+    needs: [build, deploy-test]
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: prod
+      image_tag: ${{ needs.build.outputs.image_tag }}

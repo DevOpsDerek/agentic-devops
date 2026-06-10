@@ -1,0 +1,35 @@
+# .NET
+bin/
+obj/
+*.user
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.cobertura.xml
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars.local
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl.local
+tfplan
+*.tfplan
+
+# Env / secrets
+.env
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
