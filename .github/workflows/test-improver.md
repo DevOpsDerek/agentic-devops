@@ -50,9 +50,13 @@ clock-dependent tests; avoid real network calls and test ordering dependencies.
 Verify current gaps rather than assuming `ITaskStore.Delete` or missing-task
 updates remain uncovered.
 
-Run `dotnet test AgenticDevOps.sln -c Release --collect "XPlat Code Coverage"
---settings coverlet.runsettings --results-directory ./TestResults`. CI requires
-at least 60% line coverage. Report the exact command result and before/after
+Run the complete command:
+
+```sh
+dotnet test AgenticDevOps.sln -c Release --collect "XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./TestResults
+```
+
+CI requires at least 60% line coverage. Report the exact command result and before/after
 coverage when measured; do not lower the gate or suppress restore/build errors.
 
 Use a draft PR title like `test: improve coverage for <area>`. Never merge,

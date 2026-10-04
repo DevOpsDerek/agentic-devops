@@ -63,7 +63,8 @@ or publish.
 The existing `meta-lint` CI job also calls the central
 `.github/actions/validate-agentic-workflows` action using the same immutable
 catalog revision. It validates and recompiles gh-aw sources and fails on stale
-locks with only `contents: read`. Existing .NET build/format/test and 60% coverage
+locks with only `contents: read`. A caller-side check also rejects changes to
+`.github/aw/actions-lock.json` produced by compilation. Existing .NET build/format/test and 60% coverage
 gate, test artifacts, Terraform/TFLint, Trivy, CodeQL, workflow/Markdown linting,
 check names, and triggers remain unchanged. The catalog's narrow checked-script
 helper is not a replacement for this multi-step CI. CD and environment-bound

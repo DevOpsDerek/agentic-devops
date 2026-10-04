@@ -6,6 +6,8 @@ on:
     branches:
       - main
 
+if: github.event.workflow_run.conclusion == 'failure'
+
 permissions:
   contents: read
   actions: read
