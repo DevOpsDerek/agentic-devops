@@ -175,4 +175,21 @@ jobs:
           globs: |
             **/*.md
             !.github/workflows/**
+            !.github/aw/imports/**
             !**/node_modules/**
+
+      - name: Validate agentic sources and locks
+        uses: DevOpsDerek/workflows/.github/actions/validate-agentic-workflows@dac4b81c298cb3ea6821ea312efa5375f42d5ccb
+        with:
+          gh-aw-version: v0.89.21
+          workflows-directory: .github/workflows
+
+      - name: Verify generated action pins are current
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain -- .github/aw/actions-lock.json)" ]]; then
+            echo "::error::gh-aw action pins are out of date. Recompile and commit .github/aw/actions-lock.json with the workflow locks."
+            git status --short -- .github/aw/actions-lock.json
+            exit 1
+          fi

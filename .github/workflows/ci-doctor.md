@@ -6,6 +6,8 @@ on:
     branches:
       - main
 
+if: github.event.workflow_run.conclusion == 'failure'
+
 permissions:
   contents: read
   actions: read
@@ -15,6 +17,10 @@ permissions:
 engine: copilot
 network: defaults
 
+inlined-imports: true
+imports:
+  - DevOpsDerek/workflows/.github/workflows/shared/agentic/ci-failure-diagnosis.md@dac4b81c298cb3ea6821ea312efa5375f42d5ccb
+
 tools:
   github:
     toolsets: [default]
@@ -22,48 +28,32 @@ tools:
 safe-outputs:
   create-issue:
     max: 1
+    title-prefix: "[CI diagnosis] "
+    labels: []
   add-comment:
     max: 1
   missing-tool:
+    create-issue: false
 ---
 
 # CI Doctor Agent
 
-You diagnose failing CI/CD runs so engineers get a head start on the fix.
+Follow the imported CI failure diagnosis policy for this repository's CI and CD.
 
 ## Trigger context
 
-This workflow ran because another workflow finished — run number
-**#${{ github.event.workflow_run.number }}**. Use the GitHub tools to look up that
-workflow run by its number to discover its name, branch, and conclusion.
+The triggering run ID is **${{ github.event.workflow_run.id }}**, run number
+**#${{ github.event.workflow_run.run_number }}**, conclusion
+**${{ github.event.workflow_run.conclusion }}**. Use the ID (not the display
+number) to fetch its jobs and logs.
 
-## What to do
+Stop immediately unless the conclusion is `failure`. Relevant checks include
+the .NET solution build, xUnit/60% coverage gate, Terraform validation, TFLint,
+actionlint, markdownlint, gh-aw compilation, Trivy, and OIDC deployment.
+Diagnose authentication or deployment failures from existing logs only: do not
+request credentials, rerun or cancel jobs, deploy, promote, or apply Terraform.
 
-1. **Stop immediately if the run did not fail.** Fetch the triggering run and read
-   its `conclusion`. If it is anything other than `failure` (e.g. `success`,
-   `cancelled`, `skipped`), take no action and end the run.
-2. For a failed run, use the GitHub tools to fetch the workflow run, its failed
-   jobs, and the relevant log excerpts.
-3. Determine the **most likely root cause**. Categorise it, for example:
-   - Build / compilation error
-   - Failing or flaky test, or coverage gate
-   - Linting / formatting failure (dotnet format, tflint, actionlint, markdownlint)
-   - Security gate (Trivy / CodeQL) finding
-   - Terraform validate/plan/apply failure
-   - Deployment or Azure authentication failure
-4. Produce a concise diagnosis with: the failing job/step, the key error lines,
-   the probable cause, and **concrete suggested fixes** (commands or code changes).
-
-## Output
-
-- If a tracking issue for this failure does not obviously already exist, open
-  **one** issue titled
-  `CI failure: <workflow> on <branch> (run #<run_number>)` with your diagnosis,
-  the linked run URL, and suggested next steps. Apply a `ci/cd` label if available.
-- Keep the report focused and skimmable using short sections and bullet points.
-
-## Guardrails
-
-- Never re-run, cancel, or modify workflows.
-- Do not speculate beyond the evidence in the logs; if logs are inconclusive, say
-  what additional information is needed.
+The local safe-output configuration deliberately specifies no labels; diagnosis
+must not invent labels that do not exist in this repository.
+Do not create labels, assign issues, or change project status. Include the
+workflow, branch, and run number in the diagnostic title after its shared prefix.

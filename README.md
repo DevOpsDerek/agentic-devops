@@ -28,8 +28,8 @@ automating triage, documentation, diagnostics, and test improvement.
 
 These live as Markdown in [.github/workflows/](.github/workflows/) and compile to
 locked GitHub Actions (`*.lock.yml`) via `gh aw compile`. They use **safe-outputs**
-— the agent never gets write tokens directly; its proposed actions (labels,
-comments, PRs, issues) are applied by a separate, minimally-scoped job.
+— the agent never gets write tokens directly; its proposed actions (comments,
+draft PRs, issues) are applied by a separate, minimally-scoped job.
 
 | Agent | File | Trigger | Continuous AI pillar |
 | --- | --- | --- | --- |
@@ -39,6 +39,50 @@ comments, PRs, issues) are applied by a separate, minimally-scoped job.
 | **Test Improver** | [test-improver.md](.github/workflows/test-improver.md) | Weekly + manual | Continuous Quality |
 
 The engine is **GitHub Copilot**, so no third-party model API keys are required.
+
+### Central automation adoption
+
+The agents import shared instructions from
+[`DevOpsDerek/workflows`](https://github.com/DevOpsDerek/workflows).
+Each source pins its import to a full commit SHA and uses `inlined-imports: true`,
+so the compiled lock contains the shared instructions without checking out the
+catalog at runtime. Local sources retain repository-specific triggers, paths,
+commands, read permissions, and bounded safe-output configuration; do not copy
+shared implementations into this repository.
+
+The adopted catalog revision is
+`dac4b81c298cb3ea6821ea312efa5375f42d5ccb`.
+
+Issue triage now proposes an existing label and issue type in one comment rather
+than applying them. Documentation and test improvements produce at most one
+**draft PR** per run for human review. CI diagnosis remains failure-only and does
+not create or apply new labels. No agent may
+assign issues, change project status, merge, deploy, promote, apply infrastructure,
+or publish.
+
+The existing `meta-lint` CI job also calls the central
+`.github/actions/validate-agentic-workflows` action using the same immutable
+catalog revision. It validates and recompiles gh-aw sources and fails on stale
+locks with only `contents: read`. A caller-side check also rejects changes to
+`.github/aw/actions-lock.json` produced by compilation. Existing .NET build/format/test and 60% coverage
+gate, test artifacts, Terraform/TFLint, Trivy, CodeQL, workflow/Markdown linting,
+check names, and triggers remain unchanged. The catalog's narrow checked-script
+helper is not a replacement for this multi-step CI. CD and environment-bound
+OIDC promotion remain unchanged; configure the protected production environment
+and required reviewers as described in [setup](docs/SETUP.md) before deployment.
+
+Use gh-aw **v0.89.21**, matching the explicit CI validator input:
+
+```sh
+gh aw compile --validate --actionlint --no-check-update
+git diff -- .github/workflows .github/aw/actions-lock.json .gitattributes
+```
+
+Commit each source and generated lock together and review their safe-output
+tools and permissions, not just compiler success. Never edit locks by hand.
+Remote imports cached in `.github/aw/imports/` are ignored; shared content is
+embedded in the locks. Update catalog SHAs deliberately after verifying the
+published paths and contracts, then recompile and review all affected locks.
 
 ---
 
