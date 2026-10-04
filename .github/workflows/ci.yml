@@ -73,7 +73,7 @@ jobs:
 
   markdown-lint:
     name: Markdown lint
-    uses: DevOpsDerek/workflows/.github/workflows/lint/markdown.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    uses: DevOpsDerek/workflows/.github/workflows/lint-markdown.yml@5ecebff22598835cbf5ccd7bfa07c036cce22ee9
     with:
       node-version: 22.15.0
       markdownlint-cli2-version: 0.17.2
@@ -86,14 +86,14 @@ jobs:
 
   terraform:
     name: Terraform lint & validate (infra)
-    uses: DevOpsDerek/workflows/.github/workflows/lint/terraform.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    uses: DevOpsDerek/workflows/.github/workflows/lint-terraform.yml@5ecebff22598835cbf5ccd7bfa07c036cce22ee9
     with:
       terraform-version: 1.15.6
       working-directory: infra
 
   terraform-bootstrap:
     name: Terraform lint & validate (bootstrap)
-    uses: DevOpsDerek/workflows/.github/workflows/lint/terraform.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    uses: DevOpsDerek/workflows/.github/workflows/lint-terraform.yml@5ecebff22598835cbf5ccd7bfa07c036cce22ee9
     with:
       terraform-version: 1.15.6
       working-directory: infra/bootstrap
