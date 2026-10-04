@@ -57,6 +57,8 @@ documented OIDC-only authentication, environment-specific state, and production
 reviewer requirements; never deploy, promote, apply infrastructure, or publish.
 
 Use a title like `docs: sync documentation with recent changes`. CI checks
-documentation with markdownlint-cli2, excluding `.github/workflows/**`. Report
-the exact check result or explicitly state if the tool is unavailable; do not
-claim a check passed without executing it.
+authored Markdown, including these workflow sources, with the pinned central
+markdownlint-cli2 workflow. Cached `.github/aw/imports/` files are excluded;
+generated `*.lock.yml` files are not Markdown inputs and are validated by
+`gh aw compile`. Report the exact check result or explicitly state if the tool
+is unavailable; do not claim a check passed without executing it.

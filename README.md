@@ -50,7 +50,7 @@ catalog at runtime. Local sources retain repository-specific triggers, paths,
 commands, read permissions, and bounded safe-output configuration; do not copy
 shared implementations into this repository.
 
-The adopted catalog revision is
+The agentic imports and validator retain catalog revision
 `dac4b81c298cb3ea6821ea312efa5375f42d5ccb`.
 
 Issue triage now proposes an existing label and issue type in one comment rather
@@ -64,12 +64,23 @@ The existing `meta-lint` CI job also calls the central
 `.github/actions/validate-agentic-workflows` action using the same immutable
 catalog revision. It validates and recompiles gh-aw sources and fails on stale
 locks with only `contents: read`. A caller-side check also rejects changes to
-`.github/aw/actions-lock.json` produced by compilation. Existing .NET build/format/test and 60% coverage
-gate, test artifacts, Terraform/TFLint, Trivy, CodeQL, workflow/Markdown linting,
-check names, and triggers remain unchanged. The catalog's narrow checked-script
-helper is not a replacement for this multi-step CI. CD and environment-bound
-OIDC promotion remain unchanged; configure the protected production environment
-and required reviewers as described in [setup](docs/SETUP.md) before deployment.
+`.github/aw/actions-lock.json` produced by compilation. CI also calls the
+catalog's top-level `.github/workflows/lint-terraform.yml` and
+`.github/workflows/lint-markdown.yml` workflows at immutable revision
+`30f86d7d8536364b0a31de4bc66214b39e8785bb`, independently of the retained
+agentic catalog revision. Terraform formatting and validation
+run separately for `infra/` and `infra/bootstrap/` using Terraform 1.15.6; the
+TFLint checks explicitly pass the shared `infra/.tflint.hcl` configuration
+to both initialization and lint commands for both roots. Markdown lint uses pinned Node.js
+22.15.0 and markdownlint-cli2 0.17.2 for authored Markdown, including gh-aw
+sources, through an explicit glob listing the nine authored files, not cached
+imports (extend that list when adding Markdown); generated `*.lock.yml` files are
+validated by gh-aw compilation instead. The .NET build/format/test and 60%
+coverage gate, test artifacts, Trivy, CodeQL, actionlint, workflow triggers,
+and CD and environment-bound OIDC promotion remain in place. The catalog's
+narrow checked-script helper is not a replacement for this multi-step CI.
+Configure the protected production environment and required reviewers as
+described in [setup](docs/SETUP.md) before deployment.
 
 Use gh-aw **v0.89.21**, matching the explicit CI validator input:
 

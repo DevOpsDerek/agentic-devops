@@ -33,6 +33,8 @@ dotnet format AgenticDevOps.sln --verify-no-changes
 dotnet test AgenticDevOps.sln -c Release --settings coverlet.runsettings
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra validate
+terraform -chdir=infra/bootstrap fmt -check -recursive
+terraform -chdir=infra/bootstrap validate
 gh aw compile
 ```
 

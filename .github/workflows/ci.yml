@@ -71,26 +71,35 @@ jobs:
           path: ./TestResults
           retention-days: 7
 
+  markdown-lint:
+    name: Markdown lint
+    uses: DevOpsDerek/workflows/.github/workflows/lint-markdown.yml@30f86d7d8536364b0a31de4bc66214b39e8785bb
+    with:
+      node-version: 22.15.0
+      markdownlint-cli2-version: 0.17.2
+      working-directory: .
+      markdown-paths: '{README.md,AGENTS.md,SECURITY.md,docs/SETUP.md,.github/copilot-instructions.md,.github/workflows/ci-doctor.md,.github/workflows/doc-updater.md,.github/workflows/test-improver.md,.github/workflows/issue-triage.md}'
+
   terraform:
-    name: Terraform lint & validate
+    name: Terraform lint & validate (infra)
+    uses: DevOpsDerek/workflows/.github/workflows/lint-terraform.yml@30f86d7d8536364b0a31de4bc66214b39e8785bb
+    with:
+      terraform-version: 1.15.6
+      working-directory: infra
+
+  terraform-bootstrap:
+    name: Terraform lint & validate (bootstrap)
+    uses: DevOpsDerek/workflows/.github/workflows/lint-terraform.yml@30f86d7d8536364b0a31de4bc66214b39e8785bb
+    with:
+      terraform-version: 1.15.6
+      working-directory: infra/bootstrap
+
+  tflint:
+    name: TFLint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.15.6
-
-      - name: Terraform format check
-        run: terraform -chdir=infra fmt -recursive -check
-
-      - name: Terraform init (no backend)
-        run: terraform -chdir=infra init -backend=false -input=false
-
-      - name: Terraform validate
-        run: terraform -chdir=infra validate -no-color
 
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v4
@@ -99,8 +108,10 @@ jobs:
 
       - name: TFLint
         run: |
-          tflint --chdir=infra --init
-          tflint --chdir=infra -f compact
+          tflint --chdir=infra --config="${GITHUB_WORKSPACE}/infra/.tflint.hcl" --init
+          tflint --chdir=infra --config="${GITHUB_WORKSPACE}/infra/.tflint.hcl" -f compact
+          tflint --chdir=infra/bootstrap --config="${GITHUB_WORKSPACE}/infra/.tflint.hcl" --init
+          tflint --chdir=infra/bootstrap --config="${GITHUB_WORKSPACE}/infra/.tflint.hcl" -f compact
 
   security-scan:
     name: Trivy IaC & filesystem scan
@@ -168,15 +179,6 @@ jobs:
           # Lint only hand-authored workflows. The *.lock.yml files are
           # generated and validated by gh-aw's own compiler.
           files: ".github/workflows/cd.yml, .github/workflows/ci.yml, .github/workflows/codeql.yml, .github/workflows/deploy.yml"
-
-      - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v19
-        with:
-          globs: |
-            **/*.md
-            !.github/workflows/**
-            !.github/aw/imports/**
-            !**/node_modules/**
 
       - name: Validate agentic sources and locks
         uses: DevOpsDerek/workflows/.github/actions/validate-agentic-workflows@dac4b81c298cb3ea6821ea312efa5375f42d5ccb

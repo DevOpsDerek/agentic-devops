@@ -15,7 +15,8 @@ via Terraform, with GitHub Actions CI/CD and four agentic workflows.
 | Format check | `dotnet format AgenticDevOps.sln --verify-no-changes` |
 | Build | `dotnet build AgenticDevOps.sln -c Release` |
 | Test + coverage | `dotnet test AgenticDevOps.sln -c Release --settings coverlet.runsettings` |
-| Terraform validate | `terraform -chdir=infra validate` |
+| Terraform format check | `terraform -chdir=infra fmt -recursive -check` and `terraform -chdir=infra/bootstrap fmt -recursive -check` |
+| Terraform validate | `terraform -chdir=infra validate` and `terraform -chdir=infra/bootstrap validate` |
 | Compile agentic workflows | `gh aw compile` |
 
 ## Directory map
@@ -23,6 +24,7 @@ via Terraform, with GitHub Actions CI/CD and four agentic workflows.
 - `src/Api/` — application code (edit here for feature/bug work).
 - `tests/Api.Tests/` — tests (the **Test Improver** agent only edits here).
 - `infra/` — Terraform; `infra/envs/` holds per-environment vars and backends.
+- `infra/bootstrap/` — separate Terraform root for remote state and OIDC setup.
 - `.github/workflows/` — CI/CD YAML and agentic `*.md` + generated `*.lock.yml`.
 - `docs/` — setup and supporting documentation (the **Doc Updater** agent edits
   Markdown only).
