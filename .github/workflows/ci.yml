@@ -71,26 +71,39 @@ jobs:
           path: ./TestResults
           retention-days: 7
 
+  markdown-lint:
+    name: Markdown lint
+    uses: DevOpsDerek/workflows/.github/workflows/lint/markdown.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    with:
+      node-version: 22.15.0
+      markdownlint-cli2-version: 0.17.2
+      working-directory: .
+      markdown-paths: |
+        **/*.md
+        !.github/aw/imports/**
+        !**/node_modules/**
+        !**/.terraform/**
+
   terraform:
-    name: Terraform lint & validate
+    name: Terraform lint & validate (infra)
+    uses: DevOpsDerek/workflows/.github/workflows/lint/terraform.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    with:
+      terraform-version: 1.15.6
+      working-directory: infra
+
+  terraform-bootstrap:
+    name: Terraform lint & validate (bootstrap)
+    uses: DevOpsDerek/workflows/.github/workflows/lint/terraform.yml@cd4f07509e9efb0c498217c3be352e762bd0c149
+    with:
+      terraform-version: 1.15.6
+      working-directory: infra/bootstrap
+
+  tflint:
+    name: TFLint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.15.6
-
-      - name: Terraform format check
-        run: terraform -chdir=infra fmt -recursive -check
-
-      - name: Terraform init (no backend)
-        run: terraform -chdir=infra init -backend=false -input=false
-
-      - name: Terraform validate
-        run: terraform -chdir=infra validate -no-color
 
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v4
@@ -101,6 +114,8 @@ jobs:
         run: |
           tflint --chdir=infra --init
           tflint --chdir=infra -f compact
+          tflint --chdir=infra/bootstrap --init
+          tflint --chdir=infra/bootstrap -f compact
 
   security-scan:
     name: Trivy IaC & filesystem scan
@@ -168,15 +183,6 @@ jobs:
           # Lint only hand-authored workflows. The *.lock.yml files are
           # generated and validated by gh-aw's own compiler.
           files: ".github/workflows/cd.yml, .github/workflows/ci.yml, .github/workflows/codeql.yml, .github/workflows/deploy.yml"
-
-      - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v19
-        with:
-          globs: |
-            **/*.md
-            !.github/workflows/**
-            !.github/aw/imports/**
-            !**/node_modules/**
 
       - name: Validate agentic sources and locks
         uses: DevOpsDerek/workflows/.github/actions/validate-agentic-workflows@dac4b81c298cb3ea6821ea312efa5375f42d5ccb
