@@ -8,6 +8,9 @@ coverage/
 *.coverage
 *.cobertura.xml
 
+# gh-aw compile-time remote import cache (embedded in generated locks)
+.github/aw/imports/
+
 # Terraform
 **/.terraform/*
 *.tfstate
