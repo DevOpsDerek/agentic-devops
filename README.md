@@ -66,7 +66,7 @@ catalog revision. It validates and recompiles gh-aw sources and fails on stale
 locks with only `contents: read`. A caller-side check also rejects changes to
 `.github/aw/actions-lock.json` produced by compilation. CI also calls the
 catalog's Terraform and Markdown lint workflows at immutable revision
-`5ecebff22598835cbf5ccd7bfa07c036cce22ee9`. Terraform formatting and validation
+`30f86d7d8536364b0a31de4bc66214b39e8785bb`. Terraform formatting and validation
 run separately for `infra/` and `infra/bootstrap/` using Terraform 1.15.6; the
 existing TFLint checks cover both roots. Markdown lint uses pinned Node.js
 22.15.0 and markdownlint-cli2 0.17.2 for authored Markdown, including gh-aw
