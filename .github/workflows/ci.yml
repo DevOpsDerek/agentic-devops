@@ -170,7 +170,7 @@ jobs:
           files: ".github/workflows/cd.yml, .github/workflows/ci.yml, .github/workflows/codeql.yml, .github/workflows/deploy.yml"
 
       - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v19
+        uses: DavidAnson/markdownlint-cli2-action@v23
         with:
           globs: |
             **/*.md
